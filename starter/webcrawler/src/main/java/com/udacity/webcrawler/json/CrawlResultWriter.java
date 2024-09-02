@@ -1,6 +1,7 @@
 package com.udacity.webcrawler.json;
 
 import com.udacity.webcrawler.utils.FileUtils;
+import com.udacity.webcrawler.utils.IOOperation;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -50,9 +51,14 @@ public final class CrawlResultWriter {
     public void write(Writer writer) {
         Objects.requireNonNull(writer, "Writer cannot be null");
 
+        handleIOException(() ->
+                FileUtils.getObjectMapper().writeValue(new NonClosingWriter(writer), result)
+        );
+    }
+
+    private void handleIOException(IOOperation operation) {
         try {
-            // Wrap the writer with a NonClosingWriter to prevent it from being closed by ObjectMapper
-            FileUtils.getObjectMapper().writeValue(new NonClosingWriter(writer), result);
+            operation.execute();
         } catch (IOException e) {
             throw new RuntimeException("Failed to write CrawlResult", e);
         }

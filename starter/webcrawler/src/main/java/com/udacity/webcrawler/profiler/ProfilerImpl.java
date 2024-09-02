@@ -96,7 +96,7 @@ final class ProfilerImpl implements Profiler {
             }
         }
         if (!hasProfiledMethod) {
-            throw new IllegalArgumentException("The interface does not include any methods annotated with @Profiled.");
+            throw new IllegalArgumentException("No methods with @Profiled in the interface.");
         }
     }
 

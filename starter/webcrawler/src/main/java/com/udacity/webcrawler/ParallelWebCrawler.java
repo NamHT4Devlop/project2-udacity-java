@@ -9,6 +9,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -57,29 +58,32 @@ public final class ParallelWebCrawler implements WebCrawler {
 
         try {
             logger.info("Starting crawl with URLs: " + startingUrls);
-            List<ForkJoinTask<Void>> forkJoinTaskList = startingUrls.stream()
+            List<ForkJoinTask<Void>> tasks = startingUrls.stream()
                     .map(url -> new CrawlTask(new CrawlTaskData(url, completionDate, maximumDepth, stringIntegerConcurrentHashMap, stringConcurrentSkipListSet)))
                     .collect(Collectors.toList());
 
-            ForkJoinTask.invokeAll(forkJoinTaskList);
-            logger.info("Crawl forkJoinTaskList submitted for all starting URLs.");
+            ForkJoinTask.invokeAll(tasks);
+            logger.info("Crawl tasks submitted for all starting URLs.");
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Error during crawl execution", e);
         }
 
-        if (stringIntegerConcurrentHashMap.isEmpty()) {
-            logger.info("No word stringIntegerConcurrentHashMap found during crawl.");
-            return new CrawlResult.Builder()
-                    .setWordCounts(stringIntegerConcurrentHashMap)
-                    .setUrlsVisited(stringConcurrentSkipListSet.size())
-                    .build();
-        }
-
-        logger.info("Crawl completed successfully with word stringIntegerConcurrentHashMap and visited URLs.");
-        return new CrawlResult.Builder()
-                .setWordCounts(WordCounts.sort(stringIntegerConcurrentHashMap, popularWordCount))
-                .setUrlsVisited(stringConcurrentSkipListSet.size())
-                .build();
+        return Optional.of(stringIntegerConcurrentHashMap)
+                .filter(map -> !map.isEmpty())
+                .map(map -> {
+                    logger.info("Crawl completed successfully with word counts and visited URLs.");
+                    return new CrawlResult.Builder()
+                            .setWordCounts(WordCounts.sort(map, popularWordCount))
+                            .setUrlsVisited(stringConcurrentSkipListSet.size())
+                            .build();
+                })
+                .orElseGet(() -> {
+                    logger.info("No word counts found during crawl.");
+                    return new CrawlResult.Builder()
+                            .setWordCounts(stringIntegerConcurrentHashMap)
+                            .setUrlsVisited(stringConcurrentSkipListSet.size())
+                            .build();
+                });
     }
 
     @Override
