@@ -8,6 +8,7 @@ import javax.inject.Inject;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.*;
@@ -110,7 +111,7 @@ public final class ParallelWebCrawler implements WebCrawler {
         @Override
         protected Void compute() {
             try {
-                if (!shouldProcessUrl()) {
+                if (shouldProcessUrl()) {
                     logger.info("URL skipped (not processed): " + data.hyperlink());
                     return null;
                 }
@@ -119,38 +120,32 @@ public final class ParallelWebCrawler implements WebCrawler {
                 logger.info("Processing URL: " + data.hyperlink());
                 processPage();
 
-                List<CrawlTask> subtasks = createSubtasks();
-                invokeAll(subtasks);
+                invokeAll(createSubtasks());
                 logger.info("Subtasks created and invoked for URL: " + data.hyperlink());
             } catch (Exception e) {
                 logger.log(Level.SEVERE, "Error processing URL: " + data.hyperlink(), e);
             }
-
             return null;
         }
 
         private boolean shouldProcessUrl() {
             try {
-                boolean shouldProcess = data.depthLimit() > 0
-                        && !Instant.now().isAfter(data.dueDate())
-                        && skippedURLs.stream().noneMatch(pattern -> pattern.matcher(data.hyperlink()).matches())
-                        && data.concurrentSkipListSet().add(data.hyperlink());
-
-                if (shouldProcess) {
-                    logger.info("URL will be processed: " + data.hyperlink());
-                }
-
-                return shouldProcess;
+                return data.depthLimit() <= 0 ||
+                        Instant.now().isAfter(data.dueDate()) ||
+                        skippedURLs.stream().anyMatch(pattern -> pattern.matcher(data.hyperlink()).matches()) ||
+                        !data.concurrentSkipListSet().add(data.hyperlink());
             } catch (Exception e) {
                 logger.log(Level.WARNING, "Failed to determine if URL should be processed: " + data.hyperlink(), e);
-                return false;
+                return true;
             }
         }
 
         private void processPage() {
             try {
                 var result = parserBuilder.get(data.hyperlink()).parse();
-                result.getWordCounts().forEach((word, count) -> data.integerConcurrentHashMap().merge(word, count, Integer::sum));
+                result.getWordCounts().forEach((word, count) ->
+                        data.integerConcurrentHashMap().merge(word, count, Integer::sum)
+                );
                 logger.info("Page processed successfully for URL: " + data.hyperlink());
             } catch (Exception e) {
                 logger.log(Level.SEVERE, "Error parsing page for URL: " + data.hyperlink(), e);
@@ -159,9 +154,7 @@ public final class ParallelWebCrawler implements WebCrawler {
 
         private List<CrawlTask> createSubtasks() {
             try {
-                var result = parserBuilder.get(data.hyperlink()).parse();
-                logger.info("Creating subtasks for URL: " + data.hyperlink());
-                return result.getLinks().stream()
+                return parserBuilder.get(data.hyperlink()).parse().getLinks().stream()
                         .map(link -> new CrawlTask(new CrawlTaskData(
                                 link,
                                 data.dueDate(),
@@ -172,7 +165,7 @@ public final class ParallelWebCrawler implements WebCrawler {
                         .collect(Collectors.toList());
             } catch (Exception e) {
                 logger.log(Level.SEVERE, "Error creating subtasks for URL: " + data.hyperlink(), e);
-                return List.of();
+                return Collections.emptyList();
             }
         }
     }
