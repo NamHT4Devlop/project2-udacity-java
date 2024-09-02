@@ -4,6 +4,7 @@ import com.udacity.webcrawler.utils.FileUtils;
 
 import javax.inject.Inject;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.io.Writer;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -58,11 +59,13 @@ final class ProfilerImpl implements Profiler {
     public void writeData(Path path) {
         // TODO: Write the ProfilingState data to the given file path. If a file already exists at that
         //       path, the new data should be appended to the existing file.
-        FileUtils.writeToFile(path, writer -> {
+        // Use the FileUtils.writeData method to handle writing to file or System.out.
+        String pathString = path != null ? path.toString() : null;
+        FileUtils.writeData(pathString, writer -> {
             try {
                 writeData(writer);
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new RuntimeException("Failed to write profiling data", e);
             }
         });
     }

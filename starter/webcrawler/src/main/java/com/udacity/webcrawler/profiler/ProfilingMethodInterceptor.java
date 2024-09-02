@@ -72,7 +72,8 @@ final class ProfilingMethodInterceptor implements InvocationHandler {
             throw originalException;
         } catch (IllegalAccessException iae) {
             logger.error("Cannot access method {}: {}", method.getName(), iae.toString());
-            throw iae;
+            // Wrap IllegalAccessException in a RuntimeException
+            throw new RuntimeException("Illegal access during method invocation", iae);
         } catch (RuntimeException re) {
             logger.error("Runtime exception occurred while invoking method {}: {}", method.getName(), re.toString());
             throw re;
@@ -83,6 +84,7 @@ final class ProfilingMethodInterceptor implements InvocationHandler {
             logger.debug("Method invocation completed: {}", method.getName());
         }
     }
+
 
 
     /**
